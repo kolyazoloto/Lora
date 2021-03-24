@@ -1,5 +1,5 @@
 import serial,time
-ser = serial.Serial('COM10', 9600)
+ser = serial.Serial('COM7', 9600)
 
 
 GatewayID = 234
@@ -37,7 +37,7 @@ def parseMessage(mes):
 	# Ответить на сообщение (Я принял)
 	# Пишем сообщение для отпрвки (все тоже самое что пришло только споменяные айдишники)
 	newMes = []
-	newMes.append(messageID)
+	newMes.append(255)
 	newMes.append(GatewayID)
 	newMes.append(nodeID)
 	newMes.append(retFlag)

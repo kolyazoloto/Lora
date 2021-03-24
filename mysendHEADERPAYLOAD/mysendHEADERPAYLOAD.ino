@@ -1,10 +1,10 @@
-
+#include <Vector.h>
 #include <SoftwareSerial.h>
 
 
 unsigned long sendtime=0;
 
-byte  NODE_ID = 0;
+byte  NODE_ID = 15;
 byte RECIEVER_ID = 10;
 byte END_MESSAGE[3] ={0xff,0xfe,0xff};
 
@@ -13,18 +13,57 @@ byte MESSAGE_ID = 0;
 bool RETRANSLATE = false;
 char PAYLOAD = 22;
 
-
-
 SoftwareSerial mySerial(8, 9);
-unsigned char messageToSend[8];
+// Место под переменные
+
+// вектор на принятые сообщения
+const int ELEMENT_COUNT_MAX = 10;
+unsigned char storage_array[ELEMENT_COUNT_MAX];
+Vector<unsigned char> recievedMessage(storage_array);
+
+// Вектор для зранения сообщений
+const int ELEMENT_COUNT_MAXM = 100;
+unsigned char enternal_memory_array[ELEMENT_COUNT_MAXM];
+Vector<unsigned char> enternal_memory_message(enternal_memory_array);
+
+
+// Вектор для хранения приходящих сообщений на долгое время. Нужен для сортировки сообщений , перетусовки
+const int ELEMENT_COUNT_MAXC = 100;
+unsigned char enternal_memory_array_incame[ELEMENT_COUNT_MAXC];
+Vector<unsigned char> enternal_memory_message_incame(enternal_memory_array_incame);
+
+
+
 bool sendNewMessage = true;
-void printMessage(){
+
+
+unsigned char messageToSend[8];
+
+void sendMessage(){
+  // добавляем пришедшее сообщение к нашему
+  for (auto i:enternal_memory_message_incame){
+    enternal_memory_message.push_back(i);
+  }
+  enternal_memory_message_incame.clear();
+
+  
+  for (auto i:enternal_memory_message){
+    mySerial.write(i);
+    Serial.print(i,HEX);
+    Serial.print(" ");
+  }
+  enternal_memory_message.clear();
+  Serial.println("");
+}
+
+void makeMessage(){
   // Формируем массив сообщение
   //////////////////////HEADER
   // Если отправляем новое сообщение
   if (sendNewMessage){
     messageToSend[0] = MESSAGE_ID++;
-    if (MESSAGE_ID > 255){
+    // Сделать лучше.Сделать двойной
+    if (MESSAGE_ID > 254){
       MESSAGE_ID = 0 ;
     }
     messageToSend[1] = NODE_ID;
@@ -36,20 +75,27 @@ void printMessage(){
     for (int i=0;i<3;i++){
       messageToSend[5+i] = END_MESSAGE[i]; 
     } 
-    // Отправляем
+    
     for (int i =0;i<8;i++){
-      mySerial.write(messageToSend[i]);
+      enternal_memory_message.push_back(messageToSend[i]);
     } 
+    // Отправляем
+    sendMessage();
+    //
     sendNewMessage = false;
   }  
   else{
     messageToSend[3] = !RETRANSLATE; // retranslate = true
     for (int i =0;i<8;i++){
-      mySerial.write(messageToSend[i]);
+      enternal_memory_message.push_back(messageToSend[i]);
     } 
+    // Отправляем
+    sendMessage();
+    //
     sendNewMessage = true;
   }
 }
+
 void setup()
 {
   mySerial.begin(9600);
@@ -57,49 +103,66 @@ void setup()
 }
 
 
-unsigned char alo[8];
-int count=0;
-
 void recieveMessage(){
+
+  //Serial.println("");
   while(mySerial.available()) {
-  
       unsigned char c = mySerial.read(); // читаем байт
-      //Serial.print(c);
-      alo[count] = c;
-      if (count == 7){
-        /*for (int i=0;i<8;i++){
-            Serial.println(alo[i],HEX);
+      recievedMessage.push_back(c);
+      // Определяем конец сообщения
+      int lengthvec = recievedMessage.size();
+      
+      //Serial.println("begin");
+      //Serial.println(lengthvec);
+      //Serial.println(recievedMessage[lengthvec-3]==0xFF && recievedMessage[lengthvec-2]==0xFE && recievedMessage[lengthvec-1]==0xFF);
+      //Serial.println("end");
+      
+      //Фиксируем приход сообщения
+      if ((recievedMessage[lengthvec-3]==0xFF && recievedMessage[lengthvec-2]==0xFE && recievedMessage[lengthvec-1]==0xFF) == 1){
+        /*for (auto elem:recievedMessage){
+          Serial.print(elem,HEX);  
         }*/
-        // Сюда надо придумать и написать как отличить сообщение от шлюза что типо пришло
-        if (alo[2] == NODE_ID){
+        //Serial.println("");
+        // Условия принятия сообщения
+        // Если адресовано мне
+        if (recievedMessage[2] == NODE_ID){
           // Проверяем мне ли это сообщение адресовано. Адресованное сообщение приходит только от шлюза.
           // Сюда написать сообщение от шлюза.
           sendNewMessage = true;
-          Serial.println("Пришло от шлюза");
-        };
-        count = 0;
+          //Serial.println("reply from gateway");
+          /*for (auto elem:recievedMessage){
+            Serial.print(elem,HEX);  
+          }*/
+          
+        }
+        // или если сообщение ретранслировано и не от меня
+        else if (recievedMessage[3] == 1 && recievedMessage[1] != NODE_ID){
+          sendNewMessage = true;
+          //Serial.println("Retrans message");
+          // Запоминаем пришедшее сообщение
+          for (auto elem:recievedMessage){
+            enternal_memory_message_incame.push_back(elem);
+          }
+          //сохранить в память и отправить при следующей возможности
+        }
+        recievedMessage.clear();
       }
-      
-      else{
-          count++;  
-      }
-      
-    }  
-  
+
+    
+   }
 }
 
 
 void loop()
 {
   if ((millis()-sendtime)>=10000){
-    Serial.println(sendNewMessage);
-    printMessage();
+    makeMessage();
     sendtime = millis();
-    //readMessagee();
   }
   // Прием сообщение возможно стоит переделать
-  recieveMessage();
   
+  recieveMessage();
+
 
 
 

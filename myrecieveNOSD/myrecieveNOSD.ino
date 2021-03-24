@@ -2,7 +2,7 @@
 //#include <ESP8266WiFi.h>
 #include <Wire.h> 
 #include <LiquidCrystal_I2C.h> // Подключение библиотеки
-LiquidCrystal_I2C lcd(0x3F,16,2);
+LiquidCrystal_I2C lcd(0x27,16,2);
 
 SoftwareSerial mySerial(8, 9);
 void setup()
