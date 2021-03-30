@@ -34,10 +34,23 @@ Vector<unsigned char> enternal_memory_message_incame(enternal_memory_array_incam
 
 
 
+// Вектор для хранения приходящих сообщений на долгое время. Нужен для сортировки сообщений , перетусовки
+const int ELEMENT_COUNT_MAXU = 100;
+unsigned char enternal_memory_array_id[ELEMENT_COUNT_MAXU];
+Vector<unsigned char> enternal_memory_message_id(enternal_memory_array_id);
+
+
 bool sendNewMessage = true;
-
-
 unsigned char messageToSend[8];
+
+//функцпия проверки сообщение на повторения. Если сообщение новое то 1
+bool isMesOrig(unsigned char one,unsigned char two){
+
+  for (int i=0;i<enternal_memory_message_id.size();i+=2){
+    if (one == enternal_memory_message_id[i] && two == enternal_memory_message_id[i+1]) return false;
+  }
+  return true;
+}
 
 void sendMessage(){
   // добавляем пришедшее сообщение к нашему
@@ -112,11 +125,7 @@ void recieveMessage(){
       // Определяем конец сообщения
       int lengthvec = recievedMessage.size();
       
-      //Serial.println("begin");
-      //Serial.println(lengthvec);
-      //Serial.println(recievedMessage[lengthvec-3]==0xFF && recievedMessage[lengthvec-2]==0xFE && recievedMessage[lengthvec-1]==0xFF);
-      //Serial.println("end");
-      
+       
       //Фиксируем приход сообщения
       if ((recievedMessage[lengthvec-3]==0xFF && recievedMessage[lengthvec-2]==0xFE && recievedMessage[lengthvec-1]==0xFF) == 1){
         /*for (auto elem:recievedMessage){
@@ -135,11 +144,26 @@ void recieveMessage(){
           }*/
           
         }
-        // или если сообщение ретранслировано и не от меня
-        else if (recievedMessage[3] == 1 && recievedMessage[1] != NODE_ID){
+        // или если сообщение ретранслировано и не от меня, и не было ли оно ретранслировано ранее
+        else if (recievedMessage[3] == 1 && recievedMessage[1] != NODE_ID && isMesOrig(recievedMessage[0],recievedMessage[1])){
           sendNewMessage = true;
           //Serial.println("Retrans message");
           // Запоминаем пришедшее сообщение
+          // Кладем данные переретранслированных сообщений в память
+
+          enternal_memory_message_id.push_back(recievedMessage[0]);
+          enternal_memory_message_id.push_back(recievedMessage[1]);
+
+          /*for (auto elem:enternal_memory_message_id){
+            Serial.print(elem,HEX);
+            Serial.print(" ");
+          }
+          Serial.println(" ");*/
+
+          
+
+          // где то надо брать из памяти
+ 
           for (auto elem:recievedMessage){
             enternal_memory_message_incame.push_back(elem);
           }
